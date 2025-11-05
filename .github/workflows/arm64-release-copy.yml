@@ -1,0 +1,70 @@
+name: Get-ARM64-Docker-Images-Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      docker_images:
+        description: '请填写docker镜像名称，多个用英文逗号分开'
+        required: true
+        default: 'alpine:latest,alpine/curl,busybox:stable-glibc'
+      # 新增版本号参数
+      release_version:
+        description: '请输入发布的版本号（如 v1.0.0）'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  pull_and_package:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull Docker Images and Package
+        run: |
+          images="${{ github.event.inputs.docker_images }}"
+          IFS=',' read -r -a image_array <<< "$images"
+          for image in "${image_array[@]}"; do
+            docker pull "${image}" --platform "linux/arm64"
+            image_name="${image//\//_}"
+            image_name="${image_name//:/_}"
+            docker save "${image}" -o "${image_name}-arm64.tar"
+            gzip -c "${image_name}-arm64.tar" > "${image_name}-arm64.tar.gz"
+            rm "${image_name}-arm64.tar"
+          done
+
+      - name: Set release details
+        run: |
+          # 使用输入参数设置版本号
+          echo "RELEASE_VERSION=${{ github.event.inputs.release_version }}" >> $GITHUB_ENV
+          
+          # 创建带时间戳的发布名称
+          release_name=$(TZ="Asia/Shanghai" date +'%Y-%m-%d %H:%M Build')
+          echo "RELEASE_NAME=$release_name" >> $GITHUB_ENV
+          
+          # 生成动态标签名
+          echo "TAG_NAME=DockerTarBuilder-ARM64-${{ github.event.inputs.release_version }}" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@master
+        with:
+          # 使用动态生成的标签名
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.RELEASE_NAME }} for ARM64 (${{ env.RELEASE_VERSION }})
+          body: |
+            [![版本 ${{ env.RELEASE_VERSION }}](https://img.shields.io/badge/RELEASE-${{ env.RELEASE_VERSION }}-123456?logo=github)]()
+            ### 使用示例
+            `docker load -i alpine_latest.tar.gz`
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Docker images as release assets
+        uses: softprops/action-gh-release@v2.1.0
+        with:
+          # 保持标签名一致
+          tag_name: ${{ env.TAG_NAME }}
+          files: ${{ github.workspace }}/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
