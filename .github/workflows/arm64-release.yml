@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Check Disk Space
-        run: df -h  # Linux/macOS
+        run: df -h  && ls -l
       - name: Pull Docker Images and Package
         run: |
           images="${{ github.event.inputs.docker_images }}"
