@@ -1,5 +1,4 @@
 name: New-Get-ARM64-Docker-Images-Release
-
 on:
   workflow_dispatch:
     inputs:
@@ -7,14 +6,13 @@ on:
         description: '请填写docker镜像名称，多个用英文逗号分开'
         required: true
         default: 'alpine:latest,alpine/curl,busybox:stable-glibc'
-
+        
 jobs:
   pull_and_package:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Check Disk Space
         run: |
           df -h
@@ -24,16 +22,14 @@ jobs:
           df -h /
           whoami
           ls -l /mnt
+          
       - name: Clean Docker System (optional)
         run: |
           docker system prune -af --volumes || true
           echo "Docker cleaned."
-
+          
       - name: Pull Docker Images and Package
         run: |
-          # 使用 /mnt 作为临时工作区（避免 root 空间不足）
-          TEMP_DIR="/mnt/docker_images"
-          mkdir -p "$TEMP_DIR"
 
           images="${{ github.event.inputs.docker_images }}"
           IFS=',' read -r -a image_array <<< "$images"
@@ -58,9 +54,6 @@ jobs:
 
             echo "Saved: $gz_file"
           done
-
-          # 将所有 .tar.gz 文件复制回 workspace 以便上传
-          cp "$TEMP_DIR"/*.tar.gz $GITHUB_WORKSPACE/
 
       - name: List generated files
         run: |
