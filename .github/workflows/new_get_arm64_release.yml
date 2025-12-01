@@ -17,7 +17,6 @@ jobs:
 
       - name: Check Disk Space
         run: |
-          su root
           df -h
           echo "=== /mnt space ==="
           df -h /mnt
