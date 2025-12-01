@@ -19,7 +19,7 @@ jobs:
           df -h 
           ls -l
           docker images 
-          docker rmi -f $(docker images |awk '{print $3}')
+          du -sh /* |sort -rh
       - name: Pull Docker Images and Package
         run: |
           images="${{ github.event.inputs.docker_images }}"
