@@ -22,7 +22,9 @@ jobs:
           df -h /
           whoami
           ls -l /mnt
-          
+          du -sh /usr/local* |sort -rh
+          du -sh /usr/share* |sort -rh
+          rm -fr /opt/*
       - name: Clean Docker System (optional)
         run: |
           docker system prune -af --volumes || true
