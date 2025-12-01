@@ -19,7 +19,10 @@ jobs:
           df -h 
           ls -l
           docker images 
-          du -sh /* |sort -rh
+          du -sh /usr/* |sort -rh
+          du -sh /opt/* |sort -rh
+          du -sh /mnt/* |sort -rh
+          du -sh /home/* |sort -rh
       - name: Pull Docker Images and Package
         run: |
           images="${{ github.event.inputs.docker_images }}"
