@@ -1,0 +1,94 @@
+name: Get-ARM64-Docker-Images-Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      docker_images:
+        description: '请填写docker镜像名称，多个用英文逗号分开'
+        required: true
+        default: 'alpine:latest,alpine/curl,busybox:stable-glibc'
+
+jobs:
+  pull_and_package:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Disk Space
+        run: |
+          df -h
+          echo "=== /mnt space ==="
+          df -h /mnt
+          echo "=== Root space ==="
+          df -h /
+
+      - name: Clean Docker System (optional)
+        run: |
+          docker system prune -af --volumes || true
+          echo "Docker cleaned."
+
+      - name: Pull Docker Images and Package
+        run: |
+          # 使用 /mnt 作为临时工作区（避免 root 空间不足）
+          TEMP_DIR="/mnt/docker_images"
+          mkdir -p "$TEMP_DIR"
+
+          images="${{ github.event.inputs.docker_images }}"
+          IFS=',' read -r -a image_array <<< "$images"
+          for image in "${image_array[@]}"; do
+            # 检查镜像是否已存在
+            if ! docker images -q "$image" >/dev/null; then
+              echo "Pulling $image..."
+              docker pull "$image" --platform "linux/arm64"
+            else
+              echo "Image $image already exists."
+            fi
+
+            # 构造安全文件名（替换 : / 为 _）
+            safe_name=$(echo "$image" | sed 's/[:\/]/_/g')
+            tar_file="$TEMP_DIR/${safe_name}-arm64.tar"
+            gz_file="$TEMP_DIR/${safe_name}-arm64.tar.gz"
+
+            # 保存镜像
+            docker save "$image" -o "$tar_file"
+            gzip -c "$tar_file" > "$gz_file"
+            rm "$tar_file"  # 删除原始 tar
+
+            echo "Saved: $gz_file"
+          done
+
+          # 将所有 .tar.gz 文件复制回 workspace 以便上传
+          cp "$TEMP_DIR"/*.tar.gz $GITHUB_WORKSPACE/
+
+      - name: List generated files
+        run: |
+          echo "Generated files:"
+          ls -lh $GITHUB_WORKSPACE/*.tar.gz
+          echo "Total size:"
+          du -sh $GITHUB_WORKSPACE/*.tar.gz
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@master
+        with:
+          tag_name: DockerTarBuilder-ARM64
+          name: ${{ env.RELEASE_NAME }} for ARM64
+          body: |
+            [![Github](https://img.shields.io/badge/RELEASE:DockerTarBuilder-123456?logo=github&logoColor=fff&labelColor=green&style=for-the-badge)](https://www.bilibili.com/video/BV1EZ421M7mL) [![Github](https://img.shields.io/badge/国内加速站下载-FC7C0D?logo=github&logoColor=fff&labelColor=000&style=for-the-badge)](https://wkdaily.cpolar.top/archives/1)
+            ### How to use? For example
+            `docker load -i alpine_latest.tar.gz `
+            ### Video teaching
+            [![Bilibili](https://img.shields.io/badge/Bilibili-123456?logo=bilibili&logoColor=fff&labelColor=fb7299)](https://www.bilibili.com/video/BV1yyq6YREdF)
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Docker images as release assets
+        uses: softprops/action-gh-release@v2.1.0
+        with:
+          tag_name: DockerTarBuilder-ARM64
+          files: ${{ github.workspace }}/*.tar.gz
+          token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
