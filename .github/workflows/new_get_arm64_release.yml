@@ -17,12 +17,14 @@ jobs:
 
       - name: Check Disk Space
         run: |
+          su root
           df -h
           echo "=== /mnt space ==="
           df -h /mnt
           echo "=== Root space ==="
           df -h /
-
+          whoami
+          ls -l /mnt
       - name: Clean Docker System (optional)
         run: |
           docker system prune -af --volumes || true
